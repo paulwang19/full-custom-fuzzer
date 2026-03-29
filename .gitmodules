@@ -1,0 +1,3 @@
+[submodule "custom-fuzzer"]
+	path = custom-fuzzer
+	url = git@github.com:paulwang19/custom-fuzzer.git

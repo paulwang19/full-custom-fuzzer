@@ -1,0 +1,3 @@
+# function_name  weight(0-100)
+parse_header     90
+validate_crc     60
