@@ -1,6 +1,10 @@
 # 自訂資料夾
 test/
 playground/
+target/
+
+# Python build artifacts
+__pycache__
 
 # uv 相關
 .venv/
