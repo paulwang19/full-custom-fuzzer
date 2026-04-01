@@ -116,9 +116,9 @@ class CComplexityEvaluator(CodeRiskEvaluator):
     以函數長度、分支複雜度與巨集呼叫數評估 C 程式碼風險。
     """
 
-    def scan_functions(self, project_path: Path) -> list[FunctionInfo]:
-        """遍歷所有 .c 和 .h 檔案，擷取函數定義。"""
-        functions: list[FunctionInfo] = []
+    def evaluate(self, project_path: Path) -> list[RiskResult]:
+        """遍歷所有 .c 和 .h 檔案，擷取函數並計算風險分數。"""
+        results: list[RiskResult] = []
 
         for c_file in sorted(project_path.rglob("*.[ch]")):
             try:
@@ -127,35 +127,32 @@ class CComplexityEvaluator(CodeRiskEvaluator):
                 continue
 
             rel_path = str(c_file.relative_to(project_path))
-            functions.extend(_extract_functions(source, rel_path))
+            for func in _extract_functions(source, rel_path):
+                line_count   = func.end_line - func.start_line + 1
+                branch_count = _count_branches(func.source)
+                macro_count  = _count_macro_calls(func.source)
 
-        return functions
+                line_score   = min(line_count   / LINES_PER_POINT,  MAX_LINE_SCORE)
+                branch_score = min(branch_count * BRANCH_PER_POINT, MAX_BRANCH_SCORE)
+                macro_score  = min(macro_count  * MACRO_PER_POINT,  MAX_MACRO_SCORE)
 
-    def evaluate_function(self, func: FunctionInfo) -> RiskResult:
-        """計算函數的長度分、分支分與巨集分，合計為風險分數。"""
-        line_count   = func.end_line - func.start_line + 1
-        branch_count = _count_branches(func.source)
-        macro_count  = _count_macro_calls(func.source)
+                scale = RISK_SCORE_MAX / (MAX_LINE_SCORE + MAX_BRANCH_SCORE + MAX_MACRO_SCORE)
+                raw_score = (line_score + branch_score + macro_score) * scale
 
-        line_score   = min(line_count   / LINES_PER_POINT,  MAX_LINE_SCORE)
-        branch_score = min(branch_count * BRANCH_PER_POINT, MAX_BRANCH_SCORE)
-        macro_score  = min(macro_count  * MACRO_PER_POINT,  MAX_MACRO_SCORE)
+                results.append(RiskResult(
+                    function=func,
+                    score=clamp_score(raw_score),
+                    details={
+                        "line_count":   line_count,
+                        "branch_count": branch_count,
+                        "macro_count":  macro_count,
+                        "line_score":   round(line_score,   2),
+                        "branch_score": round(branch_score, 2),
+                        "macro_score":  round(macro_score,  2),
+                    },
+                ))
 
-        scale = RISK_SCORE_MAX / (MAX_LINE_SCORE + MAX_BRANCH_SCORE + MAX_MACRO_SCORE)
-        raw_score = (line_score + branch_score + macro_score) * scale
-
-        return RiskResult(
-            function=func,
-            score=clamp_score(raw_score),
-            details={
-                "line_count":    line_count,
-                "branch_count":  branch_count,
-                "macro_count":   macro_count,
-                "line_score":    round(line_score,   2),
-                "branch_score":  round(branch_score, 2),
-                "macro_score":   round(macro_score,  2),
-            },
-        )
+        return results
 
 
 if __name__ == "__main__":

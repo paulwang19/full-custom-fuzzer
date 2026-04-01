@@ -2,8 +2,8 @@
 code-risk-evaluator 抽象介面
 
 使用方式：
-    繼承 CodeRiskEvaluator，實作 scan_functions() 與 evaluate_function()，
-    即可接入 main.py 的 CLI 流程與輸出格式。
+    繼承 CodeRiskEvaluator，實作 evaluate()，
+    即可接入 CLI 流程與輸出格式。
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any
 
-from constants import clamp_score, RISK_SCORE_MIN, RISK_SCORE_MAX
+from constants import clamp_score
 
 
 # ---------------------------------------------------------------------------
@@ -42,9 +42,7 @@ class RiskResult:
         self.score = clamp_score(self.score)
 
     def to_dict(self) -> dict[str, Any]:
-        d = asdict(self)
-        d["score_range"] = [RISK_SCORE_MIN, RISK_SCORE_MAX]
-        return d
+        return asdict(self)
 
 
 # ---------------------------------------------------------------------------
@@ -56,41 +54,22 @@ class CodeRiskEvaluator(ABC):
     程式碼風險評估器抽象基底類別。
 
     實作子類別時需覆寫：
-        scan_functions(project_path)  — 掃描專案，回傳所有函數列表
-        evaluate_function(func)       — 計算單一函數的風險分數
+        evaluate(project_path) — 掃描專案並回傳所有函數的風險評估結果
 
     可選覆寫：
         write_output(results, output_path) — 自訂輸出格式（預設為 JSON）
     """
 
-    # ------------------------------------------------------------------
-    # 必須實作
-    # ------------------------------------------------------------------
-
     @abstractmethod
-    def scan_functions(self, project_path: Path) -> list[FunctionInfo]:
+    def evaluate(self, project_path: Path) -> list[RiskResult]:
         """
-        掃描 project_path 下的程式碼，擷取所有函數。
+        掃描 project_path 下的程式碼，並對每個函數計算風險分數。
 
         Args:
             project_path: 專案根目錄路徑
 
         Returns:
-            FunctionInfo 的列表，每個元素代表一個函數
-        """
-        ...
-
-    @abstractmethod
-    def evaluate_function(self, func: FunctionInfo) -> RiskResult:
-        """
-        對單一函數計算風險分數。
-
-        Args:
-            func: 由 scan_functions() 回傳的函數資訊
-
-        Returns:
-            RiskResult，score 必須落在 [RISK_SCORE_MIN, RISK_SCORE_MAX]
-            （clamp_score() 會自動修正越界值）
+            RiskResult 的列表，每個元素代表一個函數的評估結果
         """
         ...
 
@@ -101,7 +80,6 @@ class CodeRiskEvaluator(ABC):
         子類別可覆寫此方法改為 CSV、HTML 等其他格式。
         """
         payload = {
-            "score_range": [RISK_SCORE_MIN, RISK_SCORE_MAX],
             "total_functions": len(results),
             "results": [r.to_dict() for r in results],
         }
@@ -119,7 +97,6 @@ class CodeRiskEvaluator(ABC):
         Returns:
             所有函數的 RiskResult 列表
         """
-        functions = self.scan_functions(project_path)
-        results = [self.evaluate_function(f) for f in functions]
+        results = self.evaluate(project_path)
         self.write_output(results, output_path)
         return results
