@@ -1,0 +1,9 @@
+# 自訂資料夾
+test/
+playground/
+
+# uv 相關
+.venv/
+.python-version
+pyproject.toml
+uv.lock
