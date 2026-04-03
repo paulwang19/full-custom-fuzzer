@@ -1,0 +1,28 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_OUTPUT_EXCMD	mixed	/number, pattern, mixed, or combineV2/
+!_TAG_OUTPUT_FILESEP	slash	/slash or backslash/
+!_TAG_OUTPUT_MODE	u-ctags	/u-ctags or e-ctags/
+!_TAG_PATTERN_LENGTH_LIMIT	96	/0 for no limit/
+!_TAG_PROC_CWD	/home/paul/Desktop/full-custom-fuzzer/	//
+!_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
+!_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
+!_TAG_PROGRAM_URL	https://ctags.io/	/official site/
+!_TAG_PROGRAM_VERSION	5.9.0	//
+count_lines	./example/target_c_project/io/file_io.c	/^int count_lines(const char *path)$/;"	f	line:32	typeref:typename:int
+demo_file_io	./example/target_c_project/main.c	/^static void demo_file_io(void)$/;"	f	line:51	typeref:typename:void	file:
+demo_math	./example/target_c_project/main.c	/^static void demo_math(void)$/;"	f	line:9	typeref:typename:void	file:
+demo_string	./example/target_c_project/main.c	/^static void demo_string(void)$/;"	f	line:28	typeref:typename:void	file:
+factorial	./example/target_c_project/math_utils.c	/^int factorial(int n)$/;"	f	line:3	typeref:typename:int
+fibonacci	./example/target_c_project/math_utils.c	/^int fibonacci(int n)$/;"	f	line:18	typeref:typename:int
+gcd	./example/target_c_project/math_utils.c	/^int gcd(int a, int b)$/;"	f	line:51	typeref:typename:int
+main	./example/target_c_project/main.c	/^int main(void)$/;"	f	line:65	typeref:typename:int
+my_strcmp	./example/target_c_project/string_utils.c	/^int my_strcmp(const char *a, const char *b)$/;"	f	line:12	typeref:typename:int
+my_strcpy	./example/target_c_project/string_utils.c	/^char *my_strcpy(char *dst, const char *src)$/;"	f	line:21	typeref:typename:char *
+my_strlen	./example/target_c_project/string_utils.c	/^size_t my_strlen(const char *s)$/;"	f	line:3	typeref:typename:size_t
+power	./example/target_c_project/math_utils.c	/^double power(double base, int exp)$/;"	f	line:33	typeref:typename:double
+read_first_line	./example/target_c_project/io/file_io.c	/^int read_first_line(const char *path, char *buf, size_t max_len)$/;"	f	line:15	typeref:typename:int
+str_count_char	./example/target_c_project/string_utils.c	/^int str_count_char(const char *s, char c)$/;"	f	line:43	typeref:typename:int
+str_to_lower	./example/target_c_project/string_utils.c	/^void str_to_lower(char *s)$/;"	f	line:36	typeref:typename:void
+str_to_upper	./example/target_c_project/string_utils.c	/^void str_to_upper(char *s)$/;"	f	line:29	typeref:typename:void
+write_text_file	./example/target_c_project/io/file_io.c	/^int write_text_file(const char *path, const char *buf)$/;"	f	line:6	typeref:typename:int
