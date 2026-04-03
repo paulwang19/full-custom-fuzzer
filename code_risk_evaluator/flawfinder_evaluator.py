@@ -10,8 +10,11 @@ Flawfinder + ctags 風險評估器
   4. 每個函數依 hit 的加權分數加總，正規化到 0–100
 
 Hit 加權：
-  Level 1 = 5 分、Level 2 = 10 分、Level 3 = 20 分、
-  Level 4 = 40 分、Level 5 = 70 分
+  Level 1 = 5 分
+  Level 2 = 10 分
+  Level 3 = 20 分
+  Level 4 = 40 分
+  Level 5 = 70 分
 
 使用方式：
   python3 code_risk_evaluator/flawfinder_evaluator.py <project_path> <output_path>
@@ -29,9 +32,6 @@ from pathlib import Path
 from base import CodeRiskEvaluator, FunctionInfo, RiskResult
 from constants import clamp_score
 
-# ------------------------------------------------------------------
-# 評分參數
-# ------------------------------------------------------------------
 
 LEVEL_WEIGHTS: dict[int, float] = {
     1: 5,
@@ -42,12 +42,8 @@ LEVEL_WEIGHTS: dict[int, float] = {
 }
 
 
-# ------------------------------------------------------------------
-# ctags 函數表
-# ------------------------------------------------------------------
-
 def _build_func_table(project_dir: str) -> dict[str, list[tuple[str, int]]]:
-    """ctags 解析，回傳 abs_path -> [(func_name, start_line)]。未安裝 ctags 則報錯退出。"""
+    """ctags 解析，回傳 path -> [(func_name, start_line)]，未安裝 ctags 則報錯退出"""
     ctags_bin = None
     for name in ('ctags', 'universal-ctags', 'exuberant-ctags'):
         try:
@@ -78,7 +74,7 @@ def _build_func_table(project_dir: str) -> dict[str, list[tuple[str, int]]]:
             if len(parts) < 4:
                 continue
             name = parts[0]
-            filepath = os.path.abspath(parts[1])
+            filepath = os.path.relpath(os.path.abspath(parts[1]), project_dir)
             for field in parts[3:]:
                 m = re.match(r'line:(\d+)', field)
                 if m:
@@ -90,17 +86,21 @@ def _build_func_table(project_dir: str) -> dict[str, list[tuple[str, int]]]:
     return dict(symbols)
 
 
-# ------------------------------------------------------------------
-# Flawfinder
-# ------------------------------------------------------------------
-
 def _run_flawfinder(project_dir: str) -> list[dict]:
-    """flawfinder --csv 掃描，回傳 hit 列表。"""
-    uv_path = os.path.expanduser('~/.local/bin/uv')
-    if not os.path.exists(uv_path):
-        uv_path = 'uv'
+    """flawfinder --csv 掃描，回傳 hit 列表"""
+    uv_bin = None
+    try:
+        r = subprocess.run(['which', 'uv'], capture_output=True, text=True)
+        if r.returncode == 0:
+            uv_bin = r.stdout.strip()
+    except OSError:
+        pass
 
-    cmd = [uv_path, 'run', 'flawfinder', '--csv', '--minlevel=1', project_dir]
+    if not uv_bin:
+        print('錯誤：找不到 uv，請先安裝（https://docs.astral.sh/uv/）', file=sys.stderr)
+        return []
+
+    cmd = [uv_bin, 'run', 'flawfinder', '--csv', '--minlevel=1', project_dir]
     cwd = str(Path(__file__).parent.parent)
 
     try:
@@ -111,22 +111,19 @@ def _run_flawfinder(project_dir: str) -> list[dict]:
 
     hits = []
     reader = csv.DictReader(io.StringIO(result.stdout))
+
     for row in reader:
         try:
             hits.append({
                 'file':  os.path.abspath(row['File']),
                 'line':  int(row['Line']),
+                'function':  row.get('Name', ''),
                 'level': int(row['Level']),
-                'name':  row.get('Name', ''),
             })
         except (KeyError, ValueError):
             continue
     return hits
 
-
-# ------------------------------------------------------------------
-# 評估器實作
-# ------------------------------------------------------------------
 
 class FlawfinderEvaluator(CodeRiskEvaluator):
     """
@@ -136,19 +133,14 @@ class FlawfinderEvaluator(CodeRiskEvaluator):
     def evaluate(self, project_path: Path) -> list[RiskResult]:
         project_dir = str(project_path)
 
-        # Step 1：建立函數表
         func_table = _build_func_table(project_dir)
-
-        # Step 2：執行 flawfinder
         hits = _run_flawfinder(project_dir)
-
-        # Step 3：將 hit 對應到函數，累計加權分數
-        # func_key = (abs_path, func_name, start_line)
+        
         score_map: dict[tuple, float] = defaultdict(float)
         hit_detail: dict[tuple, list[dict]] = defaultdict(list)
 
         for hit in hits:
-            fpath = hit['file']
+            fpath = os.path.relpath(hit['file'], project_dir)
             funcs = func_table.get(fpath, [])
             best_name, best_start = None, -1
             for fname, fstart in funcs:
@@ -158,15 +150,14 @@ class FlawfinderEvaluator(CodeRiskEvaluator):
                 continue
             key = (fpath, best_name, best_start)
             score_map[key] += LEVEL_WEIGHTS.get(hit['level'], 0)
-            hit_detail[key].append({'line': hit['line'], 'level': hit['level'], 'name': hit['name']})
+            hit_detail[key].append({'line': hit['line'], 'level': hit['level'], 'function': hit['function']})
 
-        # Step 4：收集所有函數的原始分數
+        # 收集所有函數的原始分數對應表
         entries = []
-        for abs_path, funcs in func_table.items():
-            rel_path = os.path.relpath(abs_path, project_dir)
+        for rel_path, funcs in func_table.items():
             for i, (fname, start_line) in enumerate(funcs):
                 end_line = funcs[i + 1][1] - 1 if i + 1 < len(funcs) else start_line
-                key = (abs_path, fname, start_line)
+                key = (rel_path, fname, start_line)
                 entries.append((
                     FunctionInfo(name=fname, file_path=rel_path,
                                  start_line=start_line, end_line=end_line),
@@ -174,7 +165,7 @@ class FlawfinderEvaluator(CodeRiskEvaluator):
                     hit_detail.get(key, []),
                 ))
 
-        # Step 5：正規化到 0–100
+        # 正規化到 0–100
         max_raw = max((raw for _, raw, _ in entries), default=0.0)
 
         results: list[RiskResult] = []
@@ -193,6 +184,13 @@ class FlawfinderEvaluator(CodeRiskEvaluator):
         results.sort(key=lambda r: r.score, reverse=True)
         return results
 
+    def write_output(self, results: list[RiskResult], output_path: Path) -> None:
+        output_path = output_path.with_suffix('.txt')
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open('w', encoding='utf-8') as f:
+            for r in results:
+                fn = r.function
+                f.write(f'{fn.file_path}:{fn.start_line}:{fn.name}\t{r.score:.2f}\n')
 
 if __name__ == '__main__':
     if len(sys.argv) != 3:
