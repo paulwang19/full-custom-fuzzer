@@ -2,6 +2,8 @@
 test/
 playground/
 target/
+out/
+output/
 
 # Python build artifacts
 __pycache__
