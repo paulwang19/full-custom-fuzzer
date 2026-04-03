@@ -8,8 +8,5 @@ output/
 # Python build artifacts
 __pycache__
 
-# uv 相關
+# 虛擬環境
 .venv/
-.python-version
-pyproject.toml
-uv.lock
